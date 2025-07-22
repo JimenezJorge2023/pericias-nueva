@@ -1,0 +1,38 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Consulta de Pericias</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { padding: 2rem; background: #f8f9fa; }
+    h1 { color: #4a148c; margin-bottom: 2rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="text-center">Consulta de Pericias</h1>
+    <div class="input-group mb-3">
+      <input type="text" id="inputCedula" class="form-control" placeholder="Ingrese número de cédula o trámite" />
+      <button class="btn btn-primary" onclick="buscar()">Buscar</button>
+    </div>
+    <table class="table table-bordered table-striped">
+      <thead class="table-dark">
+        <tr>
+          <th>PERICIAS RELACIONADAS</th>
+          <th>PERITO ASIGNADO</th>
+          <th>ESTADO</th>
+          <th>SUMILLA</th>
+          <th>DOCUMENTO SALIDA</th>
+        </tr>
+      </thead>
+      <tbody id="resultado">
+        <tr><td colspan="5" class="text-center">Esperando búsqueda...</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
