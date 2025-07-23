@@ -1,0 +1,122 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Consulta de Pericias</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 40px;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 10px;
+      font-size: 16px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 30px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #eee;
+    }
+    .no-data {
+      margin-top: 20px;
+      color: red;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Consulta de Pericias</h1>
+  <input type="text" id="searchInput" placeholder="Ingrese número de inventario (Ej: 230101825060584)">
+  <button onclick="buscar()">Buscar</button>
+
+  <table id="resultTable" style="display: none;">
+    <thead>
+      <tr>
+        <th>Pericias Relacionadas</th>
+        <th>Perito Asignado</th>
+        <th>Estado</th>
+        <th>Sumilla</th>
+        <th>Documento Salida</th>
+      </tr>
+    </thead>
+    <tbody id="resultBody"></tbody>
+  </table>
+
+  <p id="noResults" class="no-data" style="display: none;">No se encontraron datos.</p>
+
+  <script>
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQOxoOXcazz-nHspoTmwz6LWlNoC-Oq9eSguEhQDkQG6F5l2PzQ2U4wrnpJdMsMtQ/pub?gid=162047597&single=true&output=csv";
+
+    async function buscar() {
+      const searchValue = document.getElementById("searchInput").value.trim();
+      const table = document.getElementById("resultTable");
+      const body = document.getElementById("resultBody");
+      const noResults = document.getElementById("noResults");
+
+      body.innerHTML = "";
+      table.style.display = "none";
+      noResults.style.display = "none";
+
+      if (!searchValue) return;
+
+      try {
+        const res = await fetch(CSV_URL);
+        const text = await res.text();
+
+        const rows = text.split("\n").map(row => row.split(","));
+        const headers = rows[0];
+        const data = rows.slice(1);
+
+        const idxDetalle = headers.findIndex(h => h.includes("DETALLE INVENTARIO"));
+        const idxPerito = headers.findIndex(h => h.includes("RECEPTOR /GRADO Y NOMBRES COMPLETOS"));
+        const idxEstado = headers.findIndex(h => h.includes("ESTADO"));
+        const idxSumilla = headers.findIndex(h => h.includes("ASUNTO"));
+        const idxDoc = headers.findIndex(h => h.includes("N° DOCUMENTO"));
+
+        const resultados = data.filter(row => row[idxDetalle]?.includes(searchValue));
+
+        if (resultados.length === 0) {
+          noResults.style.display = "block";
+          return;
+        }
+
+        resultados.forEach(row => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${row[idxDetalle] || ""}</td>
+            <td>${row[idxPerito] || ""}</td>
+            <td>${row[idxEstado] || ""}</td>
+            <td>${row[idxSumilla] || ""}</td>
+            <td>${row[idxDoc] || ""}</td>
+          `;
+          body.appendChild(tr);
+        });
+
+        table.style.display = "table";
+      } catch (error) {
+        console.error("Error al cargar los datos:", error);
+        noResults.textContent = "Ocurrió un error al buscar los datos.";
+        noResults.style.display = "block";
+      }
+    }
+  </script>
+
+</body>
+</html>
