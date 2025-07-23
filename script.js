@@ -1,147 +1,113 @@
-const API_KEY = "AIzaSyDBaH3K0-RxZ-iqTxkkKsgC_QnRnmbYh6M";
-const SHEET_ID = "1FWWZGmQWkaarAm0YJOKe7yI5kRB0YhiH";
-const SHEET_NAME = "GENERAL";
+const API_KEY = 'AIzaSyDg3T4rpL0rAVgq0UO7xBGRz1KURbBvOdk';
+const SHEET_ID = '1FWWZGmQWkaarAm0YJOKe7yI5kRB0YhiH';
+const SHEET_NAME = 'GENERAL';
 
-const URL = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}?alt=json&key=${API_KEY}`;
+const PERITOS_ORDENADOS = [
+  'Cptn. Ramirez Velasteguí Santiago Ruben',
+  'Sgos. Barcenes Ramirez Fredy Eduardo',
+  'Sgos. Cruz Calderon Danilo Fabricio',
+  'Cbop. Gavilanez Azogue Lenin Orlando',
+  'Cbop. Arias Guishcasho Victor Damian',
+  'Cbop. Sarango Rosado Roberto Fabricio',
+  'Cbos. Guaman Freire Jefferson Guillermo',
+  'Cbos. Jimenez Jimenez Jorge Luis'
+];
 
-async function buscar() {
-  const input = document.getElementById("inputValor").value.trim();
-  const response = await fetch(URL);
+async function cargarDatos() {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}?alt=json&key=${API_KEY}`;
+  const response = await fetch(url);
   const data = await response.json();
-  const rows = data.values || [];
-
-  const header = rows[0];
-  const results = rows.slice(1).filter((row) => {
-    const colG = row[6] || "";
-    const colJ = row[9] || "";
-    return colG.includes(input) || colJ.includes(input);
-  });
-
-  const tabla = document.getElementById("resultado");
-  tabla.innerHTML = "";
-
-  results.forEach((row) => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${row[9] || ""}</td>
-      <td>${row[3] || ""}</td>
-      <td>${row[21] || ""}</td>
-      <td>${row[19] || ""}</td>
-      <td>${row[15] || ""}</td>
-    `;
-    tabla.appendChild(tr);
-  });
-
-  mostrarResumen(rows.slice(1));
+  return data.values;
 }
 
-function mostrarResumen(rows) {
-  const container = document.getElementById("resumenPeritos");
-  container.innerHTML = "";
-
-  const peritosClave = [
-    "Cptn. Ramirez Velasteguí Santiago Ruben",
-    "Sgos. Barcenes Ramirez Fredy Eduardo",
-    "Sgos. Cruz Calderon Danilo Fabricio",
-    "Cbop. Gavilanez Azogue Lenin Orlando",
-    "Cbop. Arias Guishcasho Victor Damian",
-    "Cbop. Sarango Rosado Roberto Fabricio",
-    "Cbos. Guaman Freire Jefferson Guillermo",
-    "Cbos. Jimenez Jimenez Jorge Luis"
-  ];
-
+function diasTranscurridos(fechaTexto) {
+  const [dia, mes, anio] = fechaTexto.split('/');
+  const fecha = new Date(`${anio}-${mes}-${dia}`);
   const hoy = new Date();
-  const pendientes = {};
-  const totales = {};
+  const diferencia = hoy - fecha;
+  return Math.floor(diferencia / (1000 * 60 * 60 * 24));
+}
 
-  rows.forEach((row) => {
-    const nombre = (row[3] || "").trim();
-    const asunto = (row[8] || "").trim();
-    const estado = (row[21] || "").toUpperCase();
-    const sumilla = row[19] || "";
+function buscar() {
+  const valor = document.getElementById("inputValor").value.toLowerCase().trim();
+  const resultado = document.getElementById("resultado");
+  resultado.innerHTML = "Cargando...";
 
-    const fechaSumilla = sumilla ? new Date(sumilla) : null;
-    const diasTranscurridos =
-      fechaSumilla && !isNaN(fechaSumilla) ? (hoy - fechaSumilla) / (1000 * 60 * 60 * 24) : 0;
+  cargarDatos().then(filas => {
+    const encabezado = filas[3]; // fila de encabezados (índice 3)
+    const datos = filas.slice(4); // datos desde fila 5
 
-    if (peritosClave.includes(nombre)) {
-      totales[nombre] = (totales[nombre] || 0) + 1;
+    const coincidencias = datos.filter(fila => {
+      const valorG = (fila[6] || '').toLowerCase();
+      const valorJ = (fila[9] || '').toLowerCase();
+      return valorG.includes(valor) || valorJ.includes(valor);
+    });
 
-      if (
+    resultado.innerHTML = "";
+
+    coincidencias.forEach(fila => {
+      const filaHTML = `
+        <tr>
+          <td>${fila[9] || ''}</td>
+          <td>${fila[3] || ''}</td>
+          <td>${fila[21] || ''}</td>
+          <td>${fila[19] || ''}</td>
+          <td>${fila[20] || ''}</td>
+        </tr>`;
+      resultado.innerHTML += filaHTML;
+    });
+
+    mostrarResumen(datos);
+  });
+}
+
+function mostrarResumen(datos) {
+  const resumenContainer = document.getElementById("resumenPeritos");
+  resumenContainer.innerHTML = "";
+
+  const conteo = PERITOS_ORDENADOS.map(nombre => {
+    const total = datos.filter(fila => (fila[3] || '') === nombre).length;
+    const pendientes = datos.filter(fila => {
+      const perito = fila[3] || '';
+      const asunto = fila[8] || '';
+      const estado = (fila[21] || '').toUpperCase();
+      const fechaSumilla = fila[19] || '';
+      const dias = fechaSumilla ? diasTranscurridos(fechaSumilla) : 0;
+
+      return (
+        perito === nombre &&
         asunto === "Solicitud de Informe Investigativo" &&
         estado.includes("PENDIENTE") &&
-        diasTranscurridos > 30
-      ) {
-        pendientes[nombre] = (pendientes[nombre] || 0) + 1;
-      }
-    }
+        dias > 30
+      );
+    }).length;
+    return { nombre, pendientes, total };
   });
 
-  const titulo = document.createElement("h4");
-  titulo.className = "text-center text-uppercase mb-3";
-  titulo.textContent = "INVESTIGACIONES PENDIENTES";
-  container.appendChild(titulo);
+  const maxPendientes = Math.max(...conteo.map(p => p.pendientes || 0));
+  const minPendientes = Math.min(...conteo.map(p => p.pendientes || 0));
 
-  const tabla = document.createElement("table");
-  tabla.className = "table table-bordered";
+  const getColor = (valor) => {
+    if (maxPendientes === minPendientes) return "#e0e0e0";
+    const ratio = (valor - minPendientes) / (maxPendientes - minPendientes);
+    const r = Math.round(255 * ratio);
+    const g = Math.round(255 * (1 - ratio));
+    return `rgb(${r},${g},100)`;
+  };
 
-  const thead = document.createElement("thead");
-  thead.innerHTML = `<tr><th>#</th><th>Perito</th><th>Pendientes</th></tr>`;
-  tabla.appendChild(thead);
+  let html = `<h4 class="text-center text-uppercase mb-3">Investigaciones Pendientes</h4>`;
+  html += `<table class="table table-bordered"><thead class="table-light"><tr><th>#</th><th>Perito</th><th>Pendientes</th><th>Total</th></tr></thead><tbody>`;
 
-  const tbody = document.createElement("tbody");
-
-  peritosClave.forEach((nombre, index) => {
-    const valor = pendientes[nombre] || 0;
-    const color = obtenerColor(valor, pendientes);
-
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${index + 1}</td>
-      <td>${nombre}</td>
-      <td style="background-color:${color};text-align:center">${valor}</td>
-    `;
-    tbody.appendChild(tr);
+  conteo.forEach((item, i) => {
+    html += `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${item.nombre}</td>
+        <td style="background-color: ${getColor(item.pendientes)}">${item.pendientes}</td>
+        <td>${item.total}</td>
+      </tr>`;
   });
 
-  tabla.appendChild(tbody);
-  container.appendChild(tabla);
-
-  // Totales
-  const resumenTotales = document.createElement("div");
-  resumenTotales.className = "mt-4";
-  resumenTotales.innerHTML = `<h5>Total de pericias por perito</h5>`;
-
-  const tablaTotal = document.createElement("table");
-  tablaTotal.className = "table table-bordered";
-  tablaTotal.innerHTML = `
-    <thead><tr><th>#</th><th>Perito</th><th>Total</th></tr></thead>
-    <tbody>
-      ${peritosClave
-        .map((nombre, index) => {
-          return `<tr>
-            <td>${index + 1}</td>
-            <td>${nombre}</td>
-            <td style="text-align:center">${totales[nombre] || 0}</td>
-          </tr>`;
-        })
-        .join("")}
-    </tbody>
-  `;
-
-  resumenTotales.appendChild(tablaTotal);
-  container.appendChild(resumenTotales);
-}
-
-function obtenerColor(valor, todos) {
-  const valores = Object.values(todos);
-  const max = Math.max(...valores);
-  const min = Math.min(...valores);
-
-  if (max === min) return "#ffffff"; // Todos iguales
-
-  const porcentaje = (valor - min) / (max - min);
-  const rojo = Math.floor(255 * porcentaje);
-  const verde = Math.floor(255 * (1 - porcentaje));
-  return `rgb(${rojo},${verde},0)`;
+  html += `</tbody></table>`;
+  resumenContainer.innerHTML = html;
 }
