@@ -1,4 +1,4 @@
-const API_KEY = "AIzaSyAv7U..."; // Tu API Key válida aquí
+const API_KEY = "AIzaSyAv7U..."; // Tu API Key
 const SHEET_ID = "1FWWZGmQWkaarAm0YJOKe7yI5kRB0YhiH";
 const SHEET_NAME = "GENERAL";
 
@@ -12,20 +12,20 @@ async function buscar() {
   try {
     const response = await fetch(url);
     const data = await response.json();
-
     const rows = data.values;
+
     if (!rows || rows.length === 0) {
       tabla.innerHTML = "<tr><td colspan='5'>No hay datos disponibles.</td></tr>";
       return;
     }
 
-    const valorLimpio = valor.replace(/[^\w\d]/g, "").toLowerCase();
+    const valorLimpio = valor.replace(/\D/g, ""); // solo números
 
     let encontrados = rows.filter((row, index) => {
-      if (index < 1) return false; // omitir encabezado
+      if (index === 0) return false;
 
-      const detalle = (row[9] || "").toString().replace(/[^\w\d]/g, "").toLowerCase();
-      const otroCampo = (row[6] || "").toString().replace(/[^\w\d]/g, "").toLowerCase(); // columna G
+      const detalle = (row[9] || "").toString().replace(/\D/g, "");
+      const otroCampo = (row[6] || "").toString().replace(/\D/g, "");
 
       return detalle.includes(valorLimpio) || otroCampo.includes(valorLimpio);
     });
@@ -65,7 +65,7 @@ function mostrarResumen(rows) {
     const asunto = row[8] || "";
     const estado = (row[21] || "").toUpperCase();
     const perito = row[17] || "";
-    const fechaStr = row[19] || ""; // columna T
+    const fechaStr = row[19] || "";
     const fecha = new Date(fechaStr);
     const diasDiferencia = Math.floor((hoy - fecha) / (1000 * 60 * 60 * 24));
 
@@ -83,7 +83,6 @@ function mostrarResumen(rows) {
     }
   });
 
-  // Crear tabla de pendientes
   const peritosPendientes = Object.keys(totalesPorPerito);
   const maxPend = Math.max(...Object.values(pendientesPorPerito));
   const minPend = Math.min(...Object.values(pendientesPorPerito));
@@ -109,7 +108,6 @@ function mostrarResumen(rows) {
 
   htmlPendientes += "</tbody></table>";
 
-  // Tabla de totales
   let htmlTotales = `
     <h6 class="mt-4">Total de pericias por perito</h6>
     <table class="table table-sm table-bordered">
@@ -132,7 +130,7 @@ function mostrarResumen(rows) {
 }
 
 function calcularColor(valor, min, max) {
-  if (max === min) return "#ffffff"; // blanco si todos son iguales
+  if (max === min) return "#ffffff";
   const porcentaje = (valor - min) / (max - min);
   const r = Math.floor(255 * porcentaje);
   const g = Math.floor(255 * (1 - porcentaje));
