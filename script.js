@@ -6,14 +6,23 @@ const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${
 
 let data = [];
 
-fetch(url)
-  .then(response => response.json())
-  .then(json => {
+window.addEventListener("DOMContentLoaded", async () => {
+  try {
+    const response = await fetch(url);
+    const json = await response.json();
     data = json.values;
     mostrarResumen();
-  });
+  } catch (e) {
+    alert("Error al cargar datos de la hoja.");
+  }
+});
 
 function buscar() {
+  if (!data || data.length === 0) {
+    alert("Los datos aún no están listos. Por favor espera.");
+    return;
+  }
+
   const input = document.getElementById("inputValor").value.trim();
   const resultados = data.filter((row, index) => {
     if (index === 0) return false;
