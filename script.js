@@ -1,140 +1,140 @@
-const sheetId = '1FWWZGmQWkaarAm0YJOKe7yI5kRB0YhiH';
-const sheetName = 'GENERAL';
-const apiKey = 'AIzaSyDqRQRGRG4FzGn1oOeEbMBcYVh7xUoFdms';
-
-const peritosFiltrados = [
-  'Cptn. Ramirez Velasteguí Santiago Ruben',
-  'Sgos. Barcenes Ramirez Fredy Eduardo',
-  'Sgos. Cruz Calderon Danilo Fabricio',
-  'Cbop. Gavilanez Azogue Lenin Orlando',
-  'Cbop. Arias Guishcasho Victor Damian',
-  'Cbop. Sarango Rosado Roberto Fabricio',
-  'Cbos. Guaman Freire Jefferson Guillermo',
-  'Cbos. Jimenez Jimenez Jorge Luis'
-];
-
-document.addEventListener('DOMContentLoaded', () => {
-  document.querySelector('button').addEventListener('click', buscar);
-});
+const API_KEY = "AIzaSyAv7U..."; // Tu API Key válida aquí
+const SHEET_ID = "1FWWZGmQWkaarAm0YJOKe7yI5kRB0YhiH";
+const SHEET_NAME = "GENERAL";
 
 async function buscar() {
-  const input = document.getElementById('inputValor').value.trim();
-  const resultadoBody = document.getElementById('resultado');
-  const resumenDiv = document.getElementById('resumenPeritos');
-  resultadoBody.innerHTML = '';
-  resumenDiv.innerHTML = '';
+  const valor = document.getElementById("inputValor").value.trim();
+  const tabla = document.getElementById("resultado");
+  tabla.innerHTML = "";
+
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}?key=${API_KEY}`;
 
   try {
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${sheetName}?key=${apiKey}`;
     const response = await fetch(url);
     const data = await response.json();
-    const rows = data.values;
 
+    const rows = data.values;
     if (!rows || rows.length === 0) {
-      resultadoBody.innerHTML = '<tr><td colspan="5">No se encontraron datos</td></tr>';
+      tabla.innerHTML = "<tr><td colspan='5'>No hay datos disponibles.</td></tr>";
       return;
     }
 
-    const headers = rows[0];
-    const dataRows = rows.slice(1);
+    const valorLimpio = valor.replace(/[^\w\d]/g, "").toLowerCase();
 
-    const idx = {
-      detalle: headers.findIndex(h => h.includes('DETALLE INVENTARIO')),
-      perito: headers.findIndex(h => h.includes('GRADO Y NOMBRES')),
-      estado: headers.findIndex(h => h.includes('ESTADO')),
-      sumilla: headers.findIndex(h => h.includes('FECHA DE SUMILLA')),
-      asunto: headers.findIndex(h => h.includes('ASUNTO')),
-      docSalida: headers.findIndex(h => h.includes('N° DOCUMENTO')),
-    };
+    let encontrados = rows.filter((row, index) => {
+      if (index < 1) return false; // omitir encabezado
 
-    // Mostrar resultados de búsqueda
-    const resultados = dataRows.filter(row =>
-      row[idx.detalle]?.toString().includes(input)
-    );
+      const detalle = (row[9] || "").toString().replace(/[^\w\d]/g, "").toLowerCase();
+      const otroCampo = (row[6] || "").toString().replace(/[^\w\d]/g, "").toLowerCase(); // columna G
 
-    resultados.forEach(row => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${row[idx.detalle] || ''}</td>
-        <td>${row[idx.perito] || ''}</td>
-        <td>${row[idx.estado] || ''}</td>
-        <td>${row[idx.sumilla] || ''}</td>
-        <td>${row[idx.docSalida] || ''}</td>
-      `;
-      resultadoBody.appendChild(tr);
+      return detalle.includes(valorLimpio) || otroCampo.includes(valorLimpio);
     });
 
-    // Resumen por perito
-    const hoy = new Date();
-    const pendientesYTotales = peritosFiltrados.map(nombre => ({ nombre, pendientes: 0, total: 0 }));
+    if (encontrados.length === 0) {
+      tabla.innerHTML = "<tr><td colspan='5'>No se encontraron datos</td></tr>";
+    } else {
+      encontrados.forEach(row => {
+        const fila = document.createElement("tr");
+        fila.innerHTML = `
+          <td>${row[9] || ""}</td>
+          <td>${row[17] || ""}</td>
+          <td>${row[21] || ""}</td>
+          <td>${row[19] || ""}</td>
+          <td>${row[20] || ""}</td>
+        `;
+        tabla.appendChild(fila);
+      });
+    }
 
-    dataRows.forEach(row => {
-      const perito = row[idx.perito]?.trim();
-      const estado = row[idx.estado]?.toUpperCase();
-      const asunto = row[idx.asunto]?.trim();
-      const fechaSumilla = row[idx.sumilla];
-
-      if (!peritosFiltrados.includes(perito)) return;
-
-      const registro = pendientesYTotales.find(p => p.nombre === perito);
-      if (registro) {
-        registro.total++;
-        const diasTranscurridos = calcularDias(fechaSumilla);
-        if (
-          asunto === 'Solicitud de Informe Investigativo' &&
-          estado.includes('PENDIENTE') &&
-          diasTranscurridos > 30
-        ) {
-          registro.pendientes++;
-        }
-      }
-    });
-
-    // Renderizar resumen
-    const tabla = document.createElement('table');
-    tabla.className = 'table table-bordered mt-4';
-    tabla.innerHTML = `
-      <thead>
-        <tr><th colspan="4" class="text-center text-uppercase">Investigaciones Pendientes</th></tr>
-        <tr>
-          <th>#</th>
-          <th>Perito</th>
-          <th>Pendientes</th>
-          <th>Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${pendientesYTotales.map((p, i) => `
-          <tr>
-            <td>${i + 1}</td>
-            <td>${p.nombre}</td>
-            <td style="background-color:${getColor(p.pendientes)}">${p.pendientes}</td>
-            <td>${p.total}</td>
-          </tr>`).join('')}
-      </tbody>
-    `;
-
-    resumenDiv.appendChild(tabla);
+    mostrarResumen(rows);
   } catch (error) {
-    console.error('Error al obtener datos:', error);
-    resultadoBody.innerHTML = '<tr><td colspan="5">Error al cargar los datos.</td></tr>';
+    console.error("Error al obtener los datos:", error);
+    tabla.innerHTML = "<tr><td colspan='5'>Error al cargar los datos</td></tr>";
   }
 }
 
-function calcularDias(fechaStr) {
-  if (!fechaStr) return 0;
-  const partes = fechaStr.split('/');
-  if (partes.length !== 3) return 0;
-  const [dd, mm, aa] = partes.map(p => parseInt(p));
-  const fecha = new Date(2000 + aa, mm - 1, dd); // Asume formato dd/mm/aa
+function mostrarResumen(rows) {
+  const resumen = document.getElementById("resumenPeritos");
+  resumen.innerHTML = "";
+
   const hoy = new Date();
-  const diferencia = hoy - fecha;
-  return Math.floor(diferencia / (1000 * 60 * 60 * 24));
+  const pendientesPorPerito = {};
+  const totalesPorPerito = {};
+
+  rows.slice(1).forEach(row => {
+    const asunto = row[8] || "";
+    const estado = (row[21] || "").toUpperCase();
+    const perito = row[17] || "";
+    const fechaStr = row[19] || ""; // columna T
+    const fecha = new Date(fechaStr);
+    const diasDiferencia = Math.floor((hoy - fecha) / (1000 * 60 * 60 * 24));
+
+    if (perito) {
+      totalesPorPerito[perito] = (totalesPorPerito[perito] || 0) + 1;
+    }
+
+    if (
+      asunto === "Solicitud de Informe Investigativo" &&
+      estado.includes("PENDIENTE") &&
+      !isNaN(fecha) &&
+      diasDiferencia > 30
+    ) {
+      pendientesPorPerito[perito] = (pendientesPorPerito[perito] || 0) + 1;
+    }
+  });
+
+  // Crear tabla de pendientes
+  const peritosPendientes = Object.keys(totalesPorPerito);
+  const maxPend = Math.max(...Object.values(pendientesPorPerito));
+  const minPend = Math.min(...Object.values(pendientesPorPerito));
+
+  let htmlPendientes = `
+    <h4 class="text-center mt-5 mb-3">INVESTIGACIONES PENDIENTES</h4>
+    <table class="table table-sm table-bordered">
+      <thead><tr><th>#</th><th>Perito</th><th>Pendientes</th></tr></thead>
+      <tbody>
+  `;
+
+  peritosPendientes.forEach((perito, index) => {
+    const pendientes = pendientesPorPerito[perito] || 0;
+    const color = calcularColor(pendientes, minPend, maxPend);
+    htmlPendientes += `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${perito}</td>
+        <td style="background-color:${color}">${pendientes}</td>
+      </tr>
+    `;
+  });
+
+  htmlPendientes += "</tbody></table>";
+
+  // Tabla de totales
+  let htmlTotales = `
+    <h6 class="mt-4">Total de pericias por perito</h6>
+    <table class="table table-sm table-bordered">
+      <thead><tr><th>#</th><th>Perito</th><th>Total</th></tr></thead>
+      <tbody>
+  `;
+
+  peritosPendientes.forEach((perito, index) => {
+    htmlTotales += `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${perito}</td>
+        <td>${totalesPorPerito[perito]}</td>
+      </tr>
+    `;
+  });
+
+  htmlTotales += "</tbody></table>";
+  resumen.innerHTML = htmlPendientes + htmlTotales;
 }
 
-function getColor(valor) {
-  if (valor >= 10) return '#ff9999'; // rojo
-  if (valor >= 5) return '#ffd966'; // amarillo
-  if (valor >= 1) return '#d9ead3'; // verde claro
-  return '#f2f2f2'; // gris claro
+function calcularColor(valor, min, max) {
+  if (max === min) return "#ffffff"; // blanco si todos son iguales
+  const porcentaje = (valor - min) / (max - min);
+  const r = Math.floor(255 * porcentaje);
+  const g = Math.floor(255 * (1 - porcentaje));
+  return `rgb(${r},${g},0)`;
 }
