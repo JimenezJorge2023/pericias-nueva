@@ -1,43 +1,70 @@
+async function cargarResumen() {
+  const resumenDiv = document.getElementById("resumenPeritos");
 
-document.getElementById("buscarBtn").addEventListener("click", function () {
-    const input = document.getElementById("detalleInput").value.trim();
-    const tablaResultados = document.getElementById("tablaResultados").getElementsByTagName("tbody")[0];
-    tablaResultados.innerHTML = "";
+  const ordenPeritos = [
+    "Cptn. Ramirez Velasteguí Santiago Ruben",
+    "Sgos. Barcenes Ramirez Fredy Eduardo",
+    "Sgos. Cruz Calderon Danilo Fabricio",
+    "Cbop. Gavilanez Azogue Lenin Orlando",
+    "Cbop. Arias Guishcasho Victor Damian",
+    "Cbop. Sarango Rosado Roberto Fabricio",
+    "Cbos. Guaman Freire Jefferson Guillermo",
+    "Cbos. Jimenez Jimenez Jorge Luis"
+  ];
 
-    fetch("https://docs.google.com/spreadsheets/d/e/2PACX-1vQOxoOXcazz-nHspoTmwz6LWlNoC-Oq9eSguEhQDkQG6F5l2PzQ2U4wrnpJdMsMtQ/pub?gid=162047597&single=true&output=csv")
-        .then(response => response.text())
-        .then(csv => {
-            const rows = csv.split("\n").map(row => row.split(","));
-            const header = rows[0];
-            const data = rows.slice(1);
+  try {
+    const resp = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}?alt=json&key=${API_KEY}`);
+    if (!resp.ok) throw new Error("Error al consultar la hoja.");
+    const json = await resp.json();
 
-            const detalleIndex = header.findIndex(h => h.toUpperCase().includes("DETALLE INVENTARIO"));
-            const peritoIndex = header.findIndex(h => h.toUpperCase().includes("GRADO") || h.toUpperCase().includes("PERITO"));
-            const estadoIndex = header.findIndex(h => h.toUpperCase().includes("ESTADO"));
-            const sumillaIndex = header.findIndex(h => h.toUpperCase().includes("ASUNTO"));
-            const documentoIndex = header.findIndex(h => h.toUpperCase().includes("DOCUMENTO") && !h.toUpperCase().includes("N"));
+    const rows = json.values || [];
+    const data = rows.slice(1); // Saltar encabezados
 
-            const encontrados = data.filter(row =>
-                row[detalleIndex] && row[detalleIndex].includes(input)
-            );
+    const peritos = {};
 
-            if (encontrados.length === 0) {
-                const fila = tablaResultados.insertRow();
-                const celda = fila.insertCell();
-                celda.colSpan = 5;
-                celda.textContent = "No se encontraron datos.";
-            } else {
-                encontrados.forEach(row => {
-                    const fila = tablaResultados.insertRow();
-                    fila.insertCell().textContent = row[detalleIndex] || "";
-                    fila.insertCell().textContent = row[peritoIndex] || "";
-                    fila.insertCell().textContent = row[estadoIndex] || "";
-                    fila.insertCell().textContent = row[sumillaIndex] || "";
-                    fila.insertCell().textContent = row[documentoIndex] || "";
-                });
-            }
-        })
-        .catch(error => {
-            console.error("Error al cargar el CSV:", error);
-        });
-});
+    data.forEach(row => {
+      const perito = row[17] || "SIN NOMBRE"; // Columna R
+      const estado = (row[21] || "").toUpperCase(); // Columna V
+      const tipoPericia = row[8] || ""; // Columna I
+
+      if (perito === "RECEPTOR /GRADO Y NOMBRES COMPLETOS") return;
+
+      // Solo contar si columna I == "Solicitud de Informe Investigativo"
+      if (tipoPericia === "Solicitud de Informe Investigativo") {
+        if (!peritos[perito]) peritos[perito] = { total: 0, pendientes: 0 };
+        peritos[perito].total += 1;
+        if (estado.includes("PENDIENTE")) peritos[perito].pendientes += 1;
+      }
+    });
+
+    // Construir tabla con peritos en orden específico
+    const peritosFiltrados = ordenPeritos
+      .filter(nombre => peritos[nombre])
+      .map(nombre => ({ nombre, ...peritos[nombre] }));
+
+    const tabla = `
+      <table class="table table-sm table-bordered table-striped">
+        <thead class="table-secondary">
+          <tr>
+            <th>Perito</th>
+            <th>Total Pericias</th>
+            <th>Pendientes</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${peritosFiltrados.map(p => `
+            <tr>
+              <td>${p.nombre}</td>
+              <td>${p.total}</td>
+              <td>${p.pendientes}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `;
+    resumenDiv.innerHTML = tabla;
+
+  } catch (e) {
+    resumenDiv.innerHTML = `<div class="text-danger">Error: ${e.message}</div>`;
+  }
+}
