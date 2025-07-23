@@ -1,138 +1,146 @@
-const API_KEY = "AIzaSyAv7U..."; // Tu API Key
-const SHEET_ID = "1FWWZGmQWkaarAm0YJOKe7yI5kRB0YhiH";
-const SHEET_NAME = "GENERAL";
+const API_KEY = 'AIzaSyA8-FgSL0cbyX6ErwD37xY10zNUb0h2PTs';
+const SPREADSHEET_ID = '1FWWZGmQWkaarAm0YJOKe7yI5kRB0YhiH';
+const SHEET_NAME = 'GENERAL';
+const SHEET_RANGE = `${SHEET_NAME}!A1:Z1000`;
 
-async function buscar() {
-  const valor = document.getElementById("inputValor").value.trim();
-  const tabla = document.getElementById("resultado");
-  tabla.innerHTML = "";
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelector("button").addEventListener("click", buscar);
+});
 
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}?key=${API_KEY}`;
+function buscar() {
+  const valorBusqueda = document.getElementById("inputValor").value.trim();
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${SHEET_RANGE}?key=${API_KEY}`;
 
-  try {
-    const response = await fetch(url);
-    const data = await response.json();
-    const rows = data.values;
+  fetch(url)
+    .then(response => response.json())
+    .then(data => {
+      const rows = data.values;
+      if (!rows || rows.length === 0) {
+        mostrarMensaje("No se encontraron datos.");
+        return;
+      }
 
-    if (!rows || rows.length === 0) {
-      tabla.innerHTML = "<tr><td colspan='5'>No hay datos disponibles.</td></tr>";
-      return;
-    }
-
-    const valorLimpio = valor.replace(/\D/g, ""); // solo números
-
-    let encontrados = rows.filter((row, index) => {
-      if (index === 0) return false;
-
-      const detalle = (row[9] || "").toString().replace(/\D/g, "");
-      const otroCampo = (row[6] || "").toString().replace(/\D/g, "");
-
-      return detalle.includes(valorLimpio) || otroCampo.includes(valorLimpio);
-    });
-
-    if (encontrados.length === 0) {
-      tabla.innerHTML = "<tr><td colspan='5'>No se encontraron datos</td></tr>";
-    } else {
-      encontrados.forEach(row => {
-        const fila = document.createElement("tr");
-        fila.innerHTML = `
-          <td>${row[9] || ""}</td>
-          <td>${row[17] || ""}</td>
-          <td>${row[21] || ""}</td>
-          <td>${row[19] || ""}</td>
-          <td>${row[20] || ""}</td>
-        `;
-        tabla.appendChild(fila);
+      const encabezados = rows[0];
+      const resultados = rows.slice(1).filter(row => {
+        const valorInventario = limpiarValor(row[9]); // Columna J
+        return valorInventario.includes(valorBusqueda);
       });
-    }
 
-    mostrarResumen(rows);
-  } catch (error) {
-    console.error("Error al obtener los datos:", error);
-    tabla.innerHTML = "<tr><td colspan='5'>Error al cargar los datos</td></tr>";
-  }
+      mostrarResultados(resultados, encabezados);
+      mostrarResumen(rows.slice(1), encabezados);
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      mostrarMensaje("Error al consultar los datos.");
+    });
 }
 
-function mostrarResumen(rows) {
-  const resumen = document.getElementById("resumenPeritos");
-  resumen.innerHTML = "";
+function limpiarValor(texto) {
+  if (!texto) return '';
+  return texto.replace(/[^0-9]/g, ''); // solo deja números
+}
+
+function mostrarResultados(filas, encabezados) {
+  const cuerpo = document.getElementById("resultado");
+  cuerpo.innerHTML = "";
+
+  if (filas.length === 0) {
+    cuerpo.innerHTML = `<tr><td colspan="5">No hay datos disponibles.</td></tr>`;
+    return;
+  }
+
+  const colPerito = encabezados.indexOf("RECEPTOR /GRADO Y NOMBRES COMPLETOS");
+  const colEstado = encabezados.indexOf("ESTADO");
+  const colSumilla = encabezados.indexOf("FECHA DE SUMILLA");
+  const colDocumento = encabezados.indexOf("DOCUMENTO DE SALIDA");
+  const colAsunto = encabezados.indexOf("ASUNTO");
+
+  filas.forEach(fila => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${fila[9] || ''}</td>
+      <td>${fila[colPerito] || ''}</td>
+      <td>${fila[colEstado] || ''}</td>
+      <td>${fila[colSumilla] || ''}</td>
+      <td>${fila[colDocumento] || ''}</td>
+    `;
+    cuerpo.appendChild(tr);
+  });
+}
+
+function mostrarResumen(filas, encabezados) {
+  const resumenDiv = document.getElementById("resumenPeritos");
+  resumenDiv.innerHTML = "";
+
+  const colPerito = encabezados.indexOf("RECEPTOR /GRADO Y NOMBRES COMPLETOS");
+  const colEstado = encabezados.indexOf("ESTADO");
+  const colFechaSumilla = encabezados.indexOf("FECHA DE SUMILLA");
+  const colAsunto = encabezados.indexOf("ASUNTO");
+
+  const pendientesPorPerito = {};
+  const totalPorPerito = {};
 
   const hoy = new Date();
-  const pendientesPorPerito = {};
-  const totalesPorPerito = {};
 
-  rows.slice(1).forEach(row => {
-    const asunto = row[8] || "";
-    const estado = (row[21] || "").toUpperCase();
-    const perito = row[17] || "";
-    const fechaStr = row[19] || "";
-    const fecha = new Date(fechaStr);
-    const diasDiferencia = Math.floor((hoy - fecha) / (1000 * 60 * 60 * 24));
+  filas.forEach(fila => {
+    const perito = fila[colPerito]?.trim() || '';
+    const estado = fila[colEstado]?.toUpperCase() || '';
+    const asunto = fila[colAsunto]?.toUpperCase() || '';
+    const fechaStr = fila[colFechaSumilla];
 
-    if (perito) {
-      totalesPorPerito[perito] = (totalesPorPerito[perito] || 0) + 1;
-    }
+    if (!perito) return;
+
+    totalPorPerito[perito] = (totalPorPerito[perito] || 0) + 1;
 
     if (
-      asunto === "Solicitud de Informe Investigativo" &&
+      asunto.includes("SOLICITUD DE INFORME INVESTIGATIVO") &&
       estado.includes("PENDIENTE") &&
-      !isNaN(fecha) &&
-      diasDiferencia > 30
+      fechaStr
     ) {
-      pendientesPorPerito[perito] = (pendientesPorPerito[perito] || 0) + 1;
+      const partes = fechaStr.split('/');
+      if (partes.length === 3) {
+        const fechaSumilla = new Date(`${partes[2]}-${partes[1]}-${partes[0]}`);
+        const diasTranscurridos = Math.floor((hoy - fechaSumilla) / (1000 * 60 * 60 * 24));
+        if (diasTranscurridos > 30) {
+          pendientesPorPerito[perito] = (pendientesPorPerito[perito] || 0) + 1;
+        }
+      }
     }
   });
 
-  const peritosPendientes = Object.keys(totalesPorPerito);
-  const maxPend = Math.max(...Object.values(pendientesPorPerito));
-  const minPend = Math.min(...Object.values(pendientesPorPerito));
+  const tablaPendientes = generarTablaResumen(pendientesPorPerito, "INVESTIGACIONES PENDIENTES", "Pendientes");
+  const tablaTotales = generarTablaResumen(totalPorPerito, "Total de pericias por perito", "Total");
 
-  let htmlPendientes = `
-    <h4 class="text-center mt-5 mb-3">INVESTIGACIONES PENDIENTES</h4>
-    <table class="table table-sm table-bordered">
-      <thead><tr><th>#</th><th>Perito</th><th>Pendientes</th></tr></thead>
-      <tbody>
-  `;
-
-  peritosPendientes.forEach((perito, index) => {
-    const pendientes = pendientesPorPerito[perito] || 0;
-    const color = calcularColor(pendientes, minPend, maxPend);
-    htmlPendientes += `
-      <tr>
-        <td>${index + 1}</td>
-        <td>${perito}</td>
-        <td style="background-color:${color}">${pendientes}</td>
-      </tr>
-    `;
-  });
-
-  htmlPendientes += "</tbody></table>";
-
-  let htmlTotales = `
-    <h6 class="mt-4">Total de pericias por perito</h6>
-    <table class="table table-sm table-bordered">
-      <thead><tr><th>#</th><th>Perito</th><th>Total</th></tr></thead>
-      <tbody>
-  `;
-
-  peritosPendientes.forEach((perito, index) => {
-    htmlTotales += `
-      <tr>
-        <td>${index + 1}</td>
-        <td>${perito}</td>
-        <td>${totalesPorPerito[perito]}</td>
-      </tr>
-    `;
-  });
-
-  htmlTotales += "</tbody></table>";
-  resumen.innerHTML = htmlPendientes + htmlTotales;
+  resumenDiv.appendChild(tablaPendientes);
+  resumenDiv.appendChild(tablaTotales);
 }
 
-function calcularColor(valor, min, max) {
-  if (max === min) return "#ffffff";
-  const porcentaje = (valor - min) / (max - min);
-  const r = Math.floor(255 * porcentaje);
-  const g = Math.floor(255 * (1 - porcentaje));
-  return `rgb(${r},${g},0)`;
+function generarTablaResumen(data, titulo, columnaValor) {
+  const div = document.createElement("div");
+  div.classList.add("mt-5");
+
+  const encabezado = document.createElement("h4");
+  encabezado.textContent = titulo;
+  div.appendChild(encabezado);
+
+  const tabla = document.createElement("table");
+  tabla.classList.add("table", "table-bordered");
+
+  tabla.innerHTML = `
+    <thead class="table-secondary">
+      <tr><th>#</th><th>Perito</th><th>${columnaValor}</th></tr>
+    </thead>
+    <tbody>
+      ${Object.entries(data).map(([perito, valor], i) =>
+        `<tr><td>${i + 1}</td><td>${perito}</td><td>${valor}</td></tr>`).join("")}
+    </tbody>
+  `;
+
+  div.appendChild(tabla);
+  return div;
+}
+
+function mostrarMensaje(mensaje) {
+  const cuerpo = document.getElementById("resultado");
+  cuerpo.innerHTML = `<tr><td colspan="5">${mensaje}</td></tr>`;
 }
