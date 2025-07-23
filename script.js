@@ -1,4 +1,8 @@
+# Reimportar los módulos necesarios después del reinicio
+from pathlib import Path
 
+# Código actualizado con condición adicional de los 30 días desde la fecha de sumilla (columna T, índice 19)
+updated_script_with_30day_filter = """
 const API_KEY = "AIzaSyDO38mSIu6VJzTW3v_Rh0A4a0zTiGJ6Ssg";
 const SHEET_ID = "1wXFoAHPPmviwPhziYbYqrKdHVQTd_O2Dfix1BHkAfmA";
 const SHEET_NAME = "GENERAL";
@@ -31,13 +35,22 @@ async function cargarResumen() {
       const perito = row[17] || "SIN NOMBRE"; // Columna R
       const estado = (row[21] || "").toUpperCase(); // Columna V
       const tipoPericia = row[8] || ""; // Columna I
+      const sumillaFechaTexto = row[19] || ""; // Columna T
+      const sumillaFecha = new Date(sumillaFechaTexto);
+      const hoy = new Date();
+      const diasTranscurridos = (hoy - sumillaFecha) / (1000 * 60 * 60 * 24);
 
       if (perito === "RECEPTOR /GRADO Y NOMBRES COMPLETOS") return;
 
-      if (tipoPericia === "Solicitud de Informe Investigativo") {
+      if (
+        tipoPericia === "Solicitud de Informe Investigativo" &&
+        estado.includes("PENDIENTE") &&
+        !isNaN(sumillaFecha.getTime()) &&
+        diasTranscurridos > 30
+      ) {
         if (!peritos[perito]) peritos[perito] = { total: 0, pendientes: 0 };
         peritos[perito].total += 1;
-        if (estado.includes("PENDIENTE")) peritos[perito].pendientes += 1;
+        peritos[perito].pendientes += 1;
       }
     });
 
@@ -57,27 +70,25 @@ async function cargarResumen() {
     };
 
     const tabla = `
-      
     <div class="text-center fw-bold text-uppercase mb-2">Investigaciones Pendientes</div>
     <table class="table table-sm table-bordered table-striped">
-    
-        <thead class="table-secondary">
+      <thead class="table-secondary">
+        <tr>
+          <th>#</th><th>Perito</th>
+          <th>Total Pericias</th>
+          <th>Pendientes</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${peritosFiltrados.map((p, i) => `
           <tr>
-            <th>#</th><th>Perito</th>
-            <th>Total Pericias</th>
-            <th>Pendientes</th>
+            <td>${i + 1}</td><td>${p.nombre}</td>
+            <td>${p.total}</td>
+            <td style="background-color: ${getColor(p.pendientes)}">${p.pendientes}</td>
           </tr>
-        </thead>
-        <tbody>
-          ${peritosFiltrados.map((p, i) => `
-            <tr>
-              <td>${i + 1}</td><td>${p.nombre}</td>
-              <td>${p.total}</td>
-              <td style="background-color: ${getColor(p.pendientes)}">${p.pendientes}</td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
+        `).join("")}
+      </tbody>
+    </table>
     `;
     resumenDiv.innerHTML = tabla;
 
@@ -129,3 +140,11 @@ async function buscar() {
 }
 
 window.addEventListener("DOMContentLoaded", cargarResumen);
+"""
+
+# Guardar el nuevo archivo
+script_30dias_file = Path("/mnt/data/script_30dias.js")
+script_30dias_file.write_text(updated_script_with_30day_filter)
+
+script_30dias_file.name
+
