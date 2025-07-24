@@ -1,5 +1,5 @@
 const API_KEY = "AIzaSyDO38mSIu6VJzTW3v_Rh0A4a0zTiGJ6Ssg";
-const SHEET_ID = "1FWWZGmQWkaarAm0YJOKe7yI5kRB0YhiH";
+const SHEET_ID = "1wXFoAHPPmviwPhziYbYqrKdHVQTd_O2Dfix1BHkAfmA";
 const SHEET_NAME = "GENERAL";
 
 const PERITOS_ORDENADOS = [
@@ -17,27 +17,25 @@ async function cargarResumen() {
   const resumenDiv = document.getElementById("resumenPeritos");
 
   try {
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}?alt=json&key=${API_KEY}`;
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error("No se pudo acceder a la hoja.");
-
+    const resp = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}?alt=json&key=${API_KEY}`);
+    if (!resp.ok) throw new Error("Error al consultar la hoja.");
     const json = await resp.json();
-    const data = json.values.slice(1); // Saltar encabezado
+    const rows = json.values || [];
+    const data = rows.slice(1); // Saltar encabezados
 
     const peritos = {};
-
     data.forEach(row => {
-      const tipo = row[8] || "";        // I - Tipo de documento
-      const detalle = row[9] || "";     // J - Detalle inventario
-      const perito = row[17] || "";     // R - Receptor / grado y nombres
-      const estado = (row[21] || "").toUpperCase(); // V - Estado
-
+      const perito = row[17]?.trim() || "";
+      const estado = (row[21] || "").toUpperCase();
+      const tipo = row[8] || "";
       if (
         PERITOS_ORDENADOS.includes(perito) &&
+        perito !== "RECEPTOR /GRADO Y NOMBRES COMPLETOS" &&
         tipo.includes("Solicitud de Informe Investigativo") &&
         estado === "PENDIENTE"
       ) {
-        peritos[perito] = (peritos[perito] || 0) + 1;
+        if (!peritos[perito]) peritos[perito] = 0;
+        peritos[perito]++;
       }
     });
 
@@ -58,7 +56,8 @@ async function cargarResumen() {
                 <td>${i + 1}</td>
                 <td>${nombre}</td>
                 <td>${peritos[nombre] || 0}</td>
-              </tr>`).join("")}
+              </tr>
+            `).join("")}
           </tbody>
         </table>
       </div>
@@ -84,11 +83,12 @@ async function buscar() {
     const resp = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}?alt=json&key=${API_KEY}`);
     if (!resp.ok) throw new Error("Error al consultar la hoja.");
     const json = await resp.json();
-    const data = json.values.slice(1); // saltar encabezado
+    const rows = json.values || [];
+    const data = rows.slice(1);
 
-    const filtrados = data.filter(row =>
-      (row[6] && row[6].includes(valor)) || // G
-      (row[9] && row[9].includes(valor))    // J
+    const filtrados = data.filter(r =>
+      (r[6] && r[6].toString().includes(valor)) ||  // G
+      (r[9] && r[9].toString().includes(valor))     // J
     );
 
     if (filtrados.length === 0) {
@@ -96,23 +96,22 @@ async function buscar() {
       return;
     }
 
-    tbody.innerHTML = filtrados.map(row => {
-      const estado = (row[21] || "").toUpperCase();
-      const clase = estado === "PENDIENTE" ? "estado-pendiente" :
-                    estado === "CUMPLIDO" ? "estado-cumplido" : "";
-
+    tbody.innerHTML = filtrados.map(r => {
+      const estado = (r[21] || "").trim().toUpperCase();
+      const claseEstado = estado === "PENDIENTE" ? "estado-pendiente" : estado === "CUMPLIDO" ? "estado-cumplido" : "";
       return `
         <tr>
-          <td>${row[8] || ""}</td>
-          <td>${row[17] || ""}</td>
-          <td class="${clase}">${estado}</td>
-          <td>${row[19] || ""}</td>
-          <td>${row[20] || ""}</td>
-        </tr>`;
+          <td>${r[8] || ""}</td>
+          <td>${r[17] || ""}</td>
+          <td class="${claseEstado}">${r[21] || ""}</td>
+          <td>${r[19] || ""}</td>
+          <td>${r[20] || ""}</td>
+        </tr>
+      `;
     }).join("");
 
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="5" class="text-danger">Error: ${e.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan='5' class='text-danger'>Error: ${e.message}</td></tr>`;
   }
 }
 
