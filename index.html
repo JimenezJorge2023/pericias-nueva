@@ -12,14 +12,15 @@
   </style>
 </head>
 <body class="container py-4">
-
   <h2 class="mb-4 text-center">Consulta de Pericias</h2>
 
+  <!-- Input de búsqueda -->
   <div class="mb-3 d-flex">
     <input id="inputValor" type="text" class="form-control me-2" placeholder="Ingrese número de inventario o documento">
     <button class="btn btn-primary" onclick="buscar()">Buscar</button>
   </div>
 
+  <!-- Resultados de búsqueda -->
   <div class="table-responsive">
     <table class="table table-bordered table-sm text-center align-middle">
       <thead class="table-secondary">
@@ -35,10 +36,9 @@
     </table>
   </div>
 
+  <!-- Resumen de peritos -->
   <div id="resumenPeritos" class="mt-4"></div>
 
-  <!-- Scripts -->
   <script src="script.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 </body>
 </html>
