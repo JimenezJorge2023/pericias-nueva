@@ -1,5 +1,5 @@
 const API_KEY = "AIzaSyDO38mSIu6VJzTW3v_Rh0A4a0zTiGJ6Ssg";
-const SHEET_ID = "1wXFoAHPPmviwPhziYbYqrKdHVQTd_O2Dfix1BHkAfmA";
+const SHEET_ID = "1FWWZGmQWkaarAm0YJOKe7yI5kRB0YhiH";
 const SHEET_NAME = "GENERAL";
 
 const PERITOS_ORDENADOS = [
@@ -87,8 +87,8 @@ async function buscar() {
     const data = rows.slice(1);
 
     const filtrados = data.filter(r =>
-      (r[6] && r[6].toString().includes(valor)) ||  // G
-      (r[9] && r[9].toString().includes(valor))     // J
+      (r[6] && r[6].toString().includes(valor)) ||  // Columna G
+      (r[9] && r[9].toString().includes(valor))     // Columna J
     );
 
     if (filtrados.length === 0) {
